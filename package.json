@@ -1,0 +1,19 @@
+{
+  "name": "driving-test-practice",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "test": "node --test",
+    "assets": "node extract-signs.js"
+  },
+  "dependencies": {
+    "lucide": "^0.468.0"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5",
+    "vite": "^6.1.0"
+  }
+}
