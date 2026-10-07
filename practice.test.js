@@ -4,7 +4,7 @@ import { access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { oral, signs, questions, signTips } from './data.js';
-import { recordAnswer, optionsFor, selectQuestions, shuffled, studyPlan, improvementSummary, retryQuestion } from './practice.js';
+import { recordAnswer, optionsFor, selectQuestions, shuffled, studyPlan, quickStudyPlan, improvementSummary, retryQuestion } from './practice.js';
 
 test('all source questions and numbered signs are present', () => {
   assert.equal(oral.length, 28);
@@ -97,4 +97,15 @@ test('missed answers get one later retry without mutating the queue', () => {
   assert.equal(retried[4].id, queue[0].id);
   assert.equal(retryQuestion(retried, 4, false).length, 11);
   assert.equal(retryQuestion(queue, 0, true), queue);
+});
+test('quick study covers fresh material with one review slot per five-item group', () => {
+  const progress = Object.fromEntries(signs.slice(10, 30).map(item => [item.id, { attempts: 1, streak: 0, correct: 0 }]));
+  const plan = quickStudyPlan(questions, progress);
+  assert.equal(plan.length, 5);
+  assert.equal(plan.filter(item => progress[item.id]).length, 1);
+  assert.ok(plan.some(item => item.type === 'oral'));
+  assert.ok(plan.some(item => item.type === 'sign'));
+  assert.equal(new Set(plan.map(item => item.id)).size, 5);
+  assert.ok(!quickStudyPlan(questions, {}, 200).some(item => item.id === 'sign-9'));
+  assert.deepEqual(quickStudyPlan([], {}), []);
 });

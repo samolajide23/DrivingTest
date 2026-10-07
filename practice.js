@@ -43,6 +43,15 @@ export function studyPlan(bank, progress, limit = 10) {
   return selected.slice(0, limit);
 }
 
+export function quickStudyPlan(bank, progress, limit = 5) {
+  const eligible = bank.filter(item => item.id !== 'sign-9');
+  const fresh = eligible.filter(item => !progress[item.id]?.attempts);
+  const review = selectQuestions(eligible, 'review', progress);
+  const selected = [...review.slice(0, fresh.length ? 1 : limit), ...studyPlan(fresh, {}, limit - Math.min(review.length, fresh.length ? 1 : limit))];
+  if (selected.length < limit) selected.push(...studyPlan(eligible.filter(item => !selected.some(entry => entry.id === item.id)), progress, limit - selected.length));
+  return selected;
+}
+
 export function improvementSummary(bank, progress) {
   return [['sign', 'Road signs'], ['oral', 'Oral answers']].map(([type, label]) => {
     const items = bank.filter(item => item.type === type && item.id !== 'sign-9');
