@@ -32,6 +32,7 @@ let guideOpen = false;
 let sessionActive = false;
 let sessionMissed = new Set();
 let retryScheduled = false;
+let unsure = false;
 
 function save() {
   try { localStorage.setItem(storageKey, JSON.stringify({ progress, checks })); storageError = false; }
@@ -48,6 +49,7 @@ function prepare() {
   answered = false;
   chosen = '';
   retryScheduled = false;
+  unsure = false;
   options = queue[position]?.type === 'sign' ? optionsFor(queue[position], signs) : [];
 }
 function start() {
@@ -101,9 +103,9 @@ function practiceCard() {
     ${isSign && !issue ? `<div class="answers">${options.map((answer, index) => `<button class="answer-choice ${answered && answer === question.answer ? 'correct' : ''} ${answered && chosen === answer && chosen !== question.answer ? 'incorrect' : ''}" data-choice="${index}" ${answered ? 'disabled' : ''}><span class="choice-letter">${String.fromCharCode(65 + index)}</span><span>${escape(answer)}</span>${answered && answer === question.answer ? icon('check') : answered && chosen === answer ? icon('x') : ''}</button>`).join('')}</div>`
       : revealed ? `<div class="revealed-answer"><span class="eyebrow">SUPPLIED ANSWER</span><p>${escape(question.answer)}</p></div>` : `<div class="recall-space"><span class="recall-icon">${icon('message-circle')}</span><span>${issue ? 'Source answer needs verification' : 'Recall your answer'}</span></div>`}
     ${question.note && (revealed || answered || issue) ? `<div class="source-note">${icon('triangle-alert')}<p>${escape(question.note)}</p></div>` : ''}
-    <div class="feedback" role="status">${answered ? `${icon(progress[question.id]?.lastCorrect ? 'circle-check' : 'rotate-ccw')}<span>${progress[question.id]?.lastCorrect ? progress[question.id].streak >= 2 ? 'Learned: two correct recalls in a row.' : 'Correct. One more correct recall will mark this learned.' : `Read the correct answer, then recall it without looking. ${retryScheduled ? 'You will retry this later in this session.' : 'This stays in your next review.'}`}</span>` : ''}</div>
+    <div class="feedback" role="status">${answered ? `${icon(progress[question.id]?.lastCorrect ? 'circle-check' : 'rotate-ccw')}<span>${progress[question.id]?.lastCorrect ? progress[question.id].streak >= 2 ? 'Learned: two correct recalls in a row.' : 'Correct. One more correct recall will mark this learned.' : `${unsure ? 'Not sure: marked for practice. ' : ''}Read the correct answer, then recall it without looking. ${retryScheduled ? 'You will retry this later in this session.' : 'This stays in your next review.'}`}</span>` : ''}</div>
     ${answered && !progress[question.id]?.lastCorrect && isSign ? (() => { const tip = signTips.find(entry => entry.examples.includes(question.number)); return tip ? `<div class="targeted-tip"><strong>${escape(tip.title)}</strong><p>${escape(tip.text)}</p></div>` : ''; })() : ''}
-    </div><footer class="question-footer"><span>${icon('bookmark')} ${progress[question.id]?.streak >= 2 ? 'Learned' : progress[question.id]?.attempts ? 'In progress' : 'Not practised yet'}</span><div class="footer-actions">${answered || (issue && revealed) ? `<button class="primary" data-action="next">${position === queue.length - 1 ? 'Finish session' : 'Next question'}${icon('arrow-right')}</button>` : !isSign || issue ? revealed ? `<button class="secondary" data-rate="miss">${icon('rotate-ccw')}Needs practice</button><button class="primary" data-rate="correct">${icon('check')}Got it right</button>` : `<button class="primary" data-action="reveal">${icon('eye')}Reveal answer</button>` : `<span class="footer-hint">Choose an answer above</span>`}</div></footer></section>`;
+    </div><footer class="question-footer"><span>${icon('bookmark')} ${progress[question.id]?.streak >= 2 ? 'Learned' : progress[question.id]?.attempts ? 'In progress' : 'Not practised yet'}</span><div class="footer-actions">${!answered && !issue ? `<button class="secondary" data-rate="unsure">${icon('message-circle')}Not sure</button>` : ''}${answered || (issue && revealed) ? `<button class="primary" data-action="next">${position === queue.length - 1 ? 'Finish session' : 'Next question'}${icon('arrow-right')}</button>` : !isSign || issue ? revealed ? `<button class="secondary" data-rate="miss">${icon('rotate-ccw')}Needs practice</button><button class="primary" data-rate="correct">${icon('check')}Got it right</button>` : `<button class="primary" data-action="reveal">${icon('eye')}Reveal answer</button>` : `<span class="footer-hint">Choose an answer above</span>`}</div></footer></section>`;
 }
 
 function practiceAside() {
@@ -144,7 +146,7 @@ app.addEventListener('click', event => {
   if (button.dataset.choice !== undefined && question && !answered) {
     chosen = options[Number(button.dataset.choice)];
     score(chosen === question.answer);
-  } else if (button.dataset.rate && question && !answered) { score(button.dataset.rate === 'correct'); }
+  } else if (button.dataset.rate && question && !answered) { score(button.dataset.rate === 'correct', button.dataset.rate === 'unsure'); }
   else if (button.dataset.action === 'reveal') revealed = true;
   else if (button.dataset.action === 'next') { position++; prepare(); }
   else if (button.dataset.action === 'begin') { start(); sessionActive = true; }
@@ -156,9 +158,11 @@ app.addEventListener('click', event => {
   }
   render();
 });
-function score(correct) {
+function score(correct, uncertain = false) {
   const question = queue[position];
   if (question.id === 'sign-9') return;
+  unsure = uncertain;
+  if (uncertain) revealed = true;
   progress = recordAnswer(progress, question.id, correct);
   const updatedQueue = retryQuestion(queue, position, correct);
   retryScheduled = updatedQueue.length > queue.length;
